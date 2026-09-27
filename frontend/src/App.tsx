@@ -1,7 +1,9 @@
 import { useCallback, useState } from "react";
+import type { CSSProperties } from "react";
 import { PixiCanvas } from "./PixiCanvas";
 import { useWorldState } from "./useWorldState";
 import { useBuildings } from "./useBuildings";
+import { feedPeep, giveMoney } from "./api";
 import type { PeepState } from "./types";
 
 export default function App() {
@@ -42,11 +44,30 @@ export default function App() {
           <Stat label="Happiness" value={live.happiness} />
           <p>💰 {live.money}</p>
           <p>Job: {live.job ?? "unemployed"}</p>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button onClick={() => feedPeep(live.id)} style={buttonStyle}>
+              🍎 Feed
+            </button>
+            <button onClick={() => giveMoney(live.id, 10)} style={buttonStyle}>
+              💰 Give $10
+            </button>
+          </div>
         </div>
       )}
     </div>
   );
 }
+
+const buttonStyle: CSSProperties = {
+  flex: 1,
+  padding: "8px 0",
+  background: "#3a4048",
+  border: "none",
+  borderRadius: 6,
+  color: "#e6e6e6",
+  cursor: "pointer",
+  fontSize: 13,
+};
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
