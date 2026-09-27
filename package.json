@@ -1,0 +1,28 @@
+{
+  "name": "peeps-town",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev:server": "ts-node-dev --respawn src/server.ts",
+    "dev:tick": "ts-node-dev --respawn src/tickWorker.ts",
+    "build": "tsc -p .",
+    "start:server": "node dist/server.js",
+    "start:tick": "node dist/tickWorker.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev --name init"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.19.1",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.9",
+    "@types/ws": "^8.5.10",
+    "prisma": "^5.19.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.5.3"
+  }
+}

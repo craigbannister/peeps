@@ -1,0 +1,57 @@
+// Peeps Town — data model
+// Run `npm run prisma:migrate` after setting DATABASE_URL to create these tables.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model WorldState {
+  id        Int      @id @default(1)
+  tick      Int      @default(0)
+  day       Int      @default(1)
+  updatedAt DateTime @updatedAt
+}
+
+model Building {
+  id        String   @id @default(cuid())
+  type      String // "house" | "farm" | "market" | "workshop" ...
+  x         Int
+  y         Int
+  capacity  Int      @default(1)
+  createdAt DateTime @default(now())
+  residents Peep[]   @relation("PeepHome")
+  workers   Peep[]   @relation("PeepWork")
+}
+
+model Peep {
+  id          String    @id @default(cuid())
+  name        String
+  x           Int       @default(0)
+  y           Int       @default(0)
+
+  // Needs, 0-100. Decay each tick, restored by actions.
+  hunger      Int       @default(100)
+  energy      Int       @default(100)
+  happiness   Int       @default(80)
+
+  money       Int       @default(10)
+  job         String? // "farmer" | "builder" | "trader" | null (unemployed)
+
+  // Current activity, set each tick by the decision loop.
+  activity    String    @default("idle") // "idle" | "eating" | "working" | "sleeping" | "socializing"
+
+  homeId      String?
+  home        Building? @relation("PeepHome", fields: [homeId], references: [id])
+
+  workplaceId String?
+  workplace   Building? @relation("PeepWork", fields: [workplaceId], references: [id])
+
+  alive       Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
