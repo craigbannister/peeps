@@ -9,10 +9,14 @@ Viewers connect over WebSocket to see the town update live.
 - **Prisma schema** (`prisma/schema.prisma`) — `Peep`, `Building`, `WorldState`
 - **Simulation** (`src/simulation/`) — pure per-peep decision logic (`peep.ts`)
   and the world tick that runs it against the DB (`tick.ts`)
-- **Tick worker** (`src/tickWorker.ts`) — runs the simulation loop on an interval
-- **Server** (`src/server.ts`) — REST endpoint for current state + WebSocket
-  broadcast of what changed each tick
-- No frontend yet — this is the simulation backbone first.
+- **Server** (`src/server.ts`) — REST endpoints, WebSocket broadcast of what
+  changed each tick, *and* the tick loop itself, all in one process. (An
+  earlier version ran the tick loop as a separate process; that caused a
+  port conflict crash on deploy, since it imported `server.ts` just to call
+  `broadcast()`, which re-ran the whole Express app. Keeping it one process
+  is simpler and correct for a single small instance — split it out with a
+  message queue only once you actually need multiple instances.)
+- Frontend: see below.
 
 ## Local setup
 
@@ -20,10 +24,10 @@ Viewers connect over WebSocket to see the town update live.
 2. `cp .env.example .env` and fill in `DATABASE_URL`.
 3. `npm install`
 4. `npm run prisma:migrate` — creates the tables
-5. `npx ts-node prisma/seed.ts` — creates a handful of starting peeps
-6. In one terminal: `npm run dev:server`
-7. In another: `npm run dev:tick`
-8. Check it's alive: `curl http://localhost:3000/api/state`
+5. `npx ts-node prisma/seed.ts` — creates a handful of starting peeps, houses,
+   and a workshop
+6. `npm run dev:server`
+7. Check it's alive: `curl http://localhost:3000/api/state`
 
 You should see peeps' hunger/energy/happiness drifting and their `activity`
 field changing every ~10 seconds (configurable via `TICK_INTERVAL_MS`).
@@ -45,7 +49,7 @@ loop and data model feel right.
 
 ## Buildings
 
-Peeps now have a `homeId` and `workplaceId` (both optional). When a peep's
+Peeps have a `homeId` and `workplaceId` (both optional). When a peep's
 activity is `sleeping` or `working`, they move one tile per tick toward their
 home or workplace and only get the activity's benefit (energy/money) once
 they've actually arrived — no teleporting. `prisma/seed.ts` creates 5 houses
@@ -66,16 +70,23 @@ revisit if buildings start overlapping or the town gets a real street layout.
 - Pathfinding around obstacles once buildings can be placed close together
 - Viewer interactions: a REST endpoint (e.g. `POST /api/peeps/:id/nudge`) that
   the tick loop reads before deciding activities
-- Split the tick worker off from the web server (message queue instead of the
-  direct function import currently in `tickWorker.ts`) once you move to
-  multiple instances/containers
+- If this ever needs to scale beyond one instance: split the tick loop into
+  its own process again, but replace the direct function import with a
+  message queue (SQS, Redis pub/sub) so the two processes don't share memory
 
 ## Deploying to AWS (first pass)
 
-- **Compute**: a single Lightsail instance running both `npm run start:server`
-  and `npm run start:tick` (e.g. via `pm2`) is enough to start
+- **Compute**: a single Lightsail instance running `npm run start:server`
+  (via `pm2`) — this one process handles the API, WebSocket, and tick loop
 - **Database**: RDS for PostgreSQL (`db.t4g.micro` is plenty at this scale)
-- **Frontend** (once built): S3 + CloudFront for the static build
+- **Frontend**: S3 + CloudFront for the static build
+- **TLS on the API**: since the frontend is served over HTTPS via CloudFront,
+  the API needs HTTPS too (mixed content is blocked by browsers) — a domain
+  pointed at the instance + Caddy (automatic Let's Encrypt certs) in front of
+  the Node app is the simplest way to get this on a single instance
+- CORS: `app.use(cors())` is enabled in `server.ts` since the frontend and API
+  are different origins once both are deployed; restrict it to your actual
+  frontend origin once you're past testing
 - Set `DATABASE_URL` in the instance's environment (or a `.env` file) to point
   at your RDS endpoint
 
